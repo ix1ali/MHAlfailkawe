@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "db-local",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "db:local"],
+      "port": 5433
+    },
+    {
+      "name": "app-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    }
+  ]
+}

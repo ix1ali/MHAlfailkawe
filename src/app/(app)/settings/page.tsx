@@ -1,0 +1,233 @@
+"use client";
+
+import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth";
+import { useToast } from "@/components/Toast";
+import { Field, KeyVal, PageHeader, Panel, TextInput, useConfirm } from "@/components/ui";
+import { Icon } from "@/components/Icons";
+import PasswordForm from "@/components/PasswordForm";
+import { dateShort, num, roleLabel } from "@/lib/format";
+
+export default function SettingsPage() {
+  const { data, update, exportBackup, importBackup, cloud, reload } = useStore();
+  const { user, allow, changePassword, logout } = useAuth();
+  const toast = useToast();
+  const router = useRouter();
+  const { confirm, dialog } = useConfirm();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [pwOpen, setPwOpen] = useState(false);
+  const [org, setOrg] = useState(data.settings);
+  const [dirty, setDirty] = useState(false);
+
+  const set = <K extends keyof typeof org>(k: K, v: (typeof org)[K]) => {
+    setOrg((p) => ({ ...p, [k]: v }));
+    setDirty(true);
+  };
+
+  const saveSettings = () => {
+    update((d) => { d.settings = { ...d.settings, ...org }; },
+      { action: "تعديل الإعدادات", detail: org.orgName, actor: user?.username });
+    setDirty(false);
+    toast("تم حفظ الإعدادات");
+  };
+
+  const doImport = async (f: File) => {
+    if (!(await confirm("استيراد نسخة", "سيتم استبدال كل البيانات الحالية بمحتوى الملف."))) return;
+    try { await importBackup(f); toast("تم استيراد النسخة"); }
+    catch { toast("ملف غير صالح", "error"); }
+  };
+
+  const stats: [string, string][] = [
+    ["عقارات", num(data.buildings.length)],
+    ["وحدات", num(data.units.length)],
+    ["مستأجرون", num(data.tenants.length)],
+    ["عقود", num(data.contracts.length)],
+    ["وصولات", num(data.payments.length)],
+    ["مصروفات", num(data.expenses.length)],
+    ["مستندات", num(data.docs.length)],
+    ["مراسلات", num(data.memos.length)],
+  ];
+
+  return (
+    <div className="space-y-3">
+      {dialog}
+      <PageHeader title="الإعدادات" />
+
+      {/* الحساب */}
+      <Panel title="حسابي">
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--primary)] text-white">
+            <Icon name="user" size={19} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[14px] font-semibold">{user?.displayName}</p>
+            <p className="t-xs text-[var(--muted)]">
+              @{user?.username} · {user && roleLabel[user.role]}
+              {user?.lastLoginAt && <> · آخر دخول {dateShort(user.lastLoginAt)}</>}
+            </p>
+          </div>
+          <button className="btn btn-ghost btn-sm shrink-0" onClick={() => setPwOpen(true)}>
+            <Icon name="key" size={13} /> كلمة المرور
+          </button>
+        </div>
+        <button
+          className="btn btn-danger btn-sm mt-3 w-full sm:w-auto"
+          onClick={() => { logout(); router.push("/login"); }}
+        >
+          <Icon name="logout" size={14} /> تسجيل الخروج
+        </button>
+      </Panel>
+
+      {/* بيانات المكتب */}
+      {allow("settings.manage") && (
+        <Panel
+          title="بيانات المكتب"
+          action={dirty ? <button className="btn btn-primary btn-sm" onClick={saveSettings}>حفظ</button> : undefined}
+        >
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="اسم الجهة">
+              <TextInput value={org.orgName} onChange={(e) => set("orgName", e.target.value)} />
+            </Field>
+            <Field label="اسم المالك كما يُكتب في العقود">
+              <TextInput value={org.ownerFullName} onChange={(e) => set("ownerFullName", e.target.value)} />
+            </Field>
+          </div>
+        </Panel>
+      )}
+
+      {/* قواعد العقود والتحصيل */}
+      {allow("settings.manage") && (
+        <Panel
+          title="قواعد العقود والتحصيل"
+          action={dirty ? <button className="btn btn-primary btn-sm" onClick={saveSettings}>حفظ</button> : undefined}
+        >
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+            <Field label="يوم استحقاق الإيجار" hint="حسب العقد: قبل يوم 5">
+              <TextInput type="number" min={1} max={28} value={org.dueDay} onChange={(e) => set("dueDay", +e.target.value)} />
+            </Field>
+            <Field label="تنبيه قرب انتهاء العقد" hint="بالأيام">
+              <TextInput type="number" min={7} max={180} value={org.contractAlertDays} onChange={(e) => set("contractAlertDays", +e.target.value)} />
+            </Field>
+            <Field label="بداية احتساب المتأخرات" hint="لا تُحتسب مطالبات قبل هذا الشهر">
+              <TextInput type="month" value={org.trackingStartPeriod} onChange={(e) => set("trackingStartPeriod", e.target.value)} />
+            </Field>
+            <Field label="الغرامة الإدارية (د.ك)" hint="البند الرابع عشر من العقد">
+              <TextInput type="number" min={0} value={org.lateFee} onChange={(e) => set("lateFee", +e.target.value)} />
+            </Field>
+            <Field label="أجرة المشرف الفني (د.ك)" hint="البند الثامن عشر من العقد">
+              <TextInput type="number" min={0} value={org.supervisorFee} onChange={(e) => set("supervisorFee", +e.target.value)} />
+            </Field>
+            <Field label="مدة الجلسة (دقيقة)" hint="خروج تلقائي بعدها">
+              <TextInput type="number" min={30} value={org.sessionMinutes} onChange={(e) => set("sessionMinutes", +e.target.value)} />
+            </Field>
+          </div>
+        </Panel>
+      )}
+
+      {/* الاتصال */}
+      <Panel title="الاتصال والمشاركة" flush>
+        <div className="flex items-center gap-3 border-b border-[var(--line)] p-3.5">
+          <span
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-xl"
+            style={{
+              background: cloud.on ? "var(--ok-050)" : "var(--warn-050)",
+              color: cloud.on ? "var(--ok)" : "var(--warn)",
+            }}
+          >
+            <Icon name={cloud.on ? "cloud" : "lock"} size={19} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13.5px] font-bold">
+              {cloud.on ? "متصل بالخادم — البيانات مشتركة" : "محلي على هذا الجهاز فقط"}
+            </p>
+            <p className="t-xs text-[var(--muted)]">
+              {cloud.on
+                ? "كل تعديل يظهر عند بقية المستخدمين فورًا، ويُسجَّل في سجل العمليات."
+                : "لم تُضبط مفاتيح الخادم بعد، فالبيانات لا تغادر هذا المتصفح."}
+            </p>
+          </div>
+          {cloud.on && (
+            <span
+              className="tag shrink-0"
+              style={
+                cloud.error
+                  ? { background: "var(--danger-050)", color: "var(--danger)" }
+                  : cloud.syncing
+                  ? { background: "var(--warn-050)", color: "var(--warn)" }
+                  : { background: "var(--ok-050)", color: "var(--ok)" }
+              }
+            >
+              {cloud.error ? "خطأ" : cloud.syncing ? "يحفظ…" : "محدَّث"}
+            </span>
+          )}
+        </div>
+
+        {cloud.error && (
+          <p className="t-sm border-b border-[var(--line)] bg-[var(--danger-050)] px-3.5 py-2 font-semibold text-[var(--danger)]">
+            {cloud.error}
+          </p>
+        )}
+
+        {cloud.on && (
+          <div className="flex flex-wrap gap-2 p-3.5">
+            <button className="btn btn-ghost btn-sm" onClick={async () => { await reload(); toast("تم تحديث البيانات"); }}>
+              <Icon name="refresh" size={13} /> تحديث من الخادم
+            </button>
+          </div>
+        )}
+      </Panel>
+
+      {/* البيانات */}
+      <Panel title="البيانات والنسخ الاحتياطي" flush>
+        <div className="grid grid-cols-4 divide-x divide-x-reverse divide-[var(--line)] border-b border-[var(--line)]">
+          {stats.map(([l, v]) => (
+            <div key={l} className="px-2 py-2.5 text-center">
+              <p className="num t-title leading-none">{v}</p>
+              <p className="t-xs mt-1 text-[var(--muted)]">{l}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2 p-3.5">
+          {allow("data.export") && (
+            <button className="btn btn-ghost btn-sm" onClick={exportBackup}>
+              <Icon name="download" size={13} /> تصدير نسخة
+            </button>
+          )}
+          {allow("settings.manage") && (
+            <>
+              <input
+                ref={fileRef} type="file" accept="application/json" hidden
+                onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) doImport(f); }}
+              />
+              <button className="btn btn-ghost btn-sm" onClick={() => fileRef.current?.click()}>
+                <Icon name="upload" size={13} /> استيراد نسخة
+              </button>
+            </>
+          )}
+        </div>
+        <p className="t-xs border-t border-[var(--line)] px-3.5 py-2.5 leading-relaxed text-[var(--muted)]">
+          {cloud.on
+            ? "البيانات والمستندات محفوظة على الخادم ويراها كل المستخدمين. صدّر نسخة احتياطية بين حين وآخر للاحتفاظ بها عندك."
+            : "البيانات محفوظة داخل هذا المتصفح والمستندات على الجهاز. صدّر نسخة احتياطية بانتظام."}
+        </p>
+      </Panel>
+
+      <p className="t-xs flex items-center justify-center gap-1.5 py-1 text-center text-[var(--muted)]">
+        <Icon name="shield" size={13} />
+        {cloud.on
+          ? "الصلاحيات مطبّقة على الخادم · خروج تلقائي بعد ١٢ ساعة خمول"
+          : "كلمات المرور مجزّأة · خروج تلقائي بعد ١٢ ساعة خمول"}
+      </p>
+
+      <p className="t-xs pb-2 text-center text-[var(--faint)]">
+        {data.settings.orgName} · الإصدار 1.0
+      </p>
+
+      {pwOpen && user && (
+        <PasswordForm open onClose={() => setPwOpen(false)} target={user} isSelf changePassword={changePassword} />
+      )}
+    </div>
+  );
+}
