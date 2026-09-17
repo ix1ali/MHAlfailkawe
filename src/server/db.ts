@@ -14,8 +14,30 @@ types.setTypeParser(1082, (v) => v);
 types.setTypeParser(1700, (v) => parseFloat(v));
 types.setTypeParser(20, (v) => parseInt(v, 10));
 
-export const DATABASE_URL =
-  process.env.DATABASE_URL || process.env.POSTGRES_URL || process.env.NEON_DATABASE_URL || "";
+/**
+ * يقبل أي اسم يضعه تكامل Neon/Vercel للرابط (DATABASE_URL أو POSTGRES_URL
+ * أو باسم مسبوق بلاحقة المخزن)، فلا يتعطّل النظام لاختلاف التسمية.
+ * يُفضَّل الرابط المجمَّع (pooler) لأنه الأنسب للدوال بلا خادم.
+ */
+export const DATABASE_URL = (() => {
+  const named = ["DATABASE_URL", "POSTGRES_URL", "NEON_DATABASE_URL", "POSTGRES_PRISMA_URL"];
+  const isPg = (v?: string) => !!v && /^postgres(ql)?:\/\//.test(v);
+  for (const k of named) if (isPg(process.env[k])) return process.env[k]!;
+
+  const found = Object.entries(process.env)
+    .filter(([k, v]) => isPg(v) && /url|uri/i.test(k) && !/UNPOOLED|NO_SSL|NON_?POOL/i.test(k))
+    .map(([, v]) => v!);
+  if (found.length) return found.find((v) => /-pooler\./.test(v)) ?? found[0];
+
+  // آخر محاولة: حتى الرابط غير المجمَّع خير من لا شيء
+  return Object.values(process.env).find(isPg) ?? "";
+})();
+
+/** أسماء متغيّرات البيئة التي تحمل رابط قاعدة بيانات — للتشخيص فقط، بلا قيم. */
+export const dbEnvNames = () =>
+  Object.entries(process.env)
+    .filter(([, v]) => /^postgres(ql)?:\/\//.test(v ?? ""))
+    .map(([k]) => k);
 
 const g = globalThis as unknown as { __aqarPool?: Pool };
 
