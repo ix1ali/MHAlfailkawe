@@ -16,12 +16,33 @@ export function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
   return handle(async () => {
     await requireUser();
     const id = safeId((await ctx.params).id);
+    // الطابع الزمني يكفي للتحقّق من التغيّر دون قراءة الملف كاملًا
+    const [meta] = await q<{ created_at: string; size: number }>(
+      `select created_at, size from files where id = $1`, [id]
+    );
+    if (!meta) throw new HttpError(404, "الملف غير موجود.");
+    const etag = `"${new Date(meta.created_at).getTime().toString(36)}-${meta.size.toString(36)}"`;
+
+    /**
+     * صور العمارات لها مفتاح جديد عند كل رفع (bldv-…)، وكذلك المستندات (d-…)،
+     * فمحتواها لا يتغيّر أبدًا لنفس الرابط ويُخزَّن في المتصفح سنة كاملة.
+     */
+    const immutable = /^(bldv|d)-/.test(id);
+    const cache = immutable
+      ? "private, max-age=31536000, immutable"
+      : "private, max-age=86400, stale-while-revalidate=604800";
+
+    if (req.headers.get("if-none-match") === etag) {
+      return new Response(null, { status: 304, headers: { ETag: etag, "Cache-Control": cache } });
+    }
+
     const [f] = await q<{ mime: string; data: Buffer }>(`select mime, data from files where id = $1`, [id]);
     if (!f) throw new HttpError(404, "الملف غير موجود.");
     const download = new URL(req.url).searchParams.get("download");
     const headers: Record<string, string> = {
       "Content-Type": f.mime || "application/octet-stream",
-      "Cache-Control": "private, max-age=600",
+      "Cache-Control": cache,
+      ETag: etag,
       "X-Content-Type-Options": "nosniff",
     };
     if (download) headers["Content-Disposition"] = `attachment; filename*=UTF-8''${encodeURIComponent(download)}`;

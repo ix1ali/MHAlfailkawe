@@ -10,7 +10,7 @@ import { Chip, Empty, KeyVal, PageHeader, Sheet, useConfirm } from "@/components
 import { Icon } from "@/components/Icons";
 import { BuildingForm, FloorForm } from "@/components/forms";
 import DocsPanel from "@/components/DocsPanel";
-import { useBuildingPhoto } from "@/components/BuildingPhoto";
+import { BuildingPhoto } from "@/components/BuildingPhoto";
 import type { Building } from "@/lib/types";
 
 export default function BuildingsPage() {
@@ -180,20 +180,19 @@ function BuildingCard({
   onEdit: () => void;
   onOpenUnits: () => void;
 }) {
-  const photo = useBuildingPhoto(b.photo);
-
   return (
     <div className="card overflow-hidden">
       {/* صورة الواجهة */}
       <div className="relative h-[150px] w-full">
-        {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photo} alt="" className="absolute inset-0 h-full w-full object-cover" style={{ objectPosition: "50% 38%" }} />
-        ) : (
-          <div className="absolute inset-0 grid place-items-center" style={{ background: b.color }}>
-            <Icon name="building" size={34} className="text-white/35" />
-          </div>
-        )}
+        <BuildingPhoto
+          building={b}
+          eager
+          fallback={
+            <div className="absolute inset-0 grid place-items-center" style={{ background: b.color }}>
+              <Icon name="building" size={34} className="text-white/35" />
+            </div>
+          }
+        />
         <div
           className="absolute inset-0"
           style={{ background: "linear-gradient(to top, rgba(10,26,62,.88) 0%, rgba(10,26,62,.18) 55%, rgba(10,26,62,0) 100%)" }}

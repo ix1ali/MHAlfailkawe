@@ -8,8 +8,8 @@ import { Field, Select, Sheet, TextArea, TextInput } from "./ui";
 import { BANKS } from "./print";
 import { Icon } from "./Icons";
 import { uid } from "@/lib/crypto";
-import { delBlob, putBlob } from "@/lib/files";
-import { useBuildingPhoto } from "./BuildingPhoto";
+import { delBlob, putBlob, putPhoto } from "@/lib/files";
+import { fileUrl } from "@/lib/files";
 import { EXPENSE_ORDER, addMonths, expenseLabel, floorName, kindLabel, methodLabel, monthAr, statusLabel, thisPeriod, todayISO } from "@/lib/format";
 import type {
   Building, Contract, Expense, ExpenseCategory, PayMethod, Tenant, Unit, UnitKind, UnitStatus,
@@ -298,8 +298,9 @@ export function BuildingForm({
     notes: building?.notes ?? "",
   });
   const [photo, setPhoto] = useState<string | undefined>(building?.photo);
+  const [photoBlur, setPhotoBlur] = useState<string | undefined>(building?.photoBlur);
   const [photoBusy, setPhotoBusy] = useState(false);
-  const photoUrl = useBuildingPhoto(photo);
+  const photoUrl = photo ? fileUrl(photo) : null;
   const photoRef = useRef<HTMLInputElement>(null);
   const [floorsCount, setFloorsCount] = useState(4);
   const [basement, setBasement] = useState(true);
@@ -311,7 +312,7 @@ export function BuildingForm({
       (d) => {
         if (building) {
           const t = d.buildings.find((b) => b.id === building.id);
-          if (t) Object.assign(t, f, { photo });
+          if (t) Object.assign(t, f, { photo, photoBlur });
         } else {
           const id = uid("b-");
           d.buildings.push({ id, ...f, createdAt: new Date().toISOString() });
@@ -351,12 +352,15 @@ export function BuildingForm({
               const file = e.target.files?.[0];
               e.target.value = "";
               if (!file) return;
-              if (file.size > 6_000_000) return toast("الصورة كبيرة — أقصى حجم ٦ ميغابايت", "error");
+              if (file.size > 12_000_000) return toast("الصورة كبيرة — أقصى حجم ١٢ ميغابايت", "error");
               setPhotoBusy(true);
               try {
-                const key = `bld-${building?.id ?? uid("b-")}`;
-                await putBlob(key, file);
+                const old = photo;
+                // مفتاح جديد لكل صورة، فيحفظها المتصفح بلا إعادة تحميل
+                const { key, blur } = await putPhoto(building?.id ?? uid("b-"), file);
                 setPhoto(key);
+                setPhotoBlur(blur);
+                if (old) { try { await delBlob(old); } catch {} }
                 toast("تم رفع الصورة — اضغط حفظ");
               } catch {
                 toast("تعذّر رفع الصورة", "error");
@@ -376,7 +380,7 @@ export function BuildingForm({
                 <button
                   type="button"
                   className="btn btn-sm !bg-white/90 !text-[var(--danger)]"
-                  onClick={async () => { if (photo) { try { await delBlob(photo); } catch {} } setPhoto(undefined); }}
+                  onClick={async () => { if (photo) { try { await delBlob(photo); } catch {} } setPhoto(undefined); setPhotoBlur(undefined); }}
                 >
                   <Icon name="trash" size={13} /> إزالة
                 </button>

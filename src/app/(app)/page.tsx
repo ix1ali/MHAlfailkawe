@@ -9,7 +9,7 @@ import { amount, dateShort, monthAr, monthsLabel, num, thisPeriod } from "@/lib/
 import { Money } from "@/components/ui";
 import { Gauge } from "@/components/Charts";
 import { Icon, type IconName } from "@/components/Icons";
-import { useBuildingPhoto } from "@/components/BuildingPhoto";
+import { BuildingPhoto, usePrefetchPhotos } from "@/components/BuildingPhoto";
 
 const DATE_FMT = new Intl.DateTimeFormat("ar-KW-u-nu-latn", {
   weekday: "long", day: "numeric", month: "long",
@@ -27,8 +27,8 @@ export default function DashboardPage() {
     () => (activeBuilding === "all" ? data.buildings[0] : data.buildings.find((b) => b.id === activeBuilding)),
     [data.buildings, activeBuilding]
   );
-  // الصورة تخصّ العقار المفتوح وحده
-  const photo = useBuildingPhoto(building?.photo);
+  // صور بقية العمارات تُحمَّل في الخلفية فيصير التبديل فوريًا
+  usePrefetchPhotos(data.buildings);
 
   const expiring = useMemo(() => {
     const now = Date.now();
@@ -72,13 +72,11 @@ export default function DashboardPage() {
 
       {/* ========================= العقار وصورة واجهته ========================= */}
       <section className="anim-up relative h-[150px] overflow-hidden rounded-2xl">
-        {photo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={photo} alt="" className="absolute inset-0 h-full w-full object-cover"
-            style={{ objectPosition: "50% 38%" }} />
-        ) : (
-          <div className="absolute inset-0 bg-[var(--primary)]" />
-        )}
+        <BuildingPhoto
+          building={building}
+          eager
+          fallback={<div className="absolute inset-0 bg-[var(--primary)]" />}
+        />
         {/* حجاب مزدوج: من اليمين حيث يبدأ النص، ومن الأسفل حيث الأرقام */}
         <div
           className="absolute inset-0"

@@ -51,6 +51,8 @@ export interface Building {
   color: string;
   /** مفتاح صورة واجهة العقار في المخزن — تظهر لهذا العقار وحده. */
   photo?: string;
+  /** معاينة مصغّرة جدًا (بضع مئات من البايتات) تُرسم فورًا ريثما تصل الصورة. */
+  photoBlur?: string;
   createdAt: string;
 }
 

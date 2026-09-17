@@ -27,7 +27,8 @@ create table if not exists buildings (
   id text primary key, name text not null, code text default '', area text default '',
   block text default '', street text default '', building_no text default '', parcel text,
   owner_name text default '', paci_no text, land_area numeric, built_area numeric, notes text,
-  color text default '#1d4ed8', photo text, created_at timestamptz not null default now()
+  color text default '#1d4ed8', photo text, photo_blur text,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists floors (
@@ -158,6 +159,8 @@ export function ensureReady(): Promise<void> {
 
 async function init() {
   await pool().query(DDL);
+  // ترقيات المخطط على قواعد أُنشئت قبلها
+  await q(`alter table buildings add column if not exists photo_blur text`);
   // دور «مشرف عقار» السابق صار هو «الحارس» نفسه — تُنقل الحسابات القديمة إليه
   await q(`update users set role = 'guard' where role = 'manager'`);
   const tables = COLLS.map((c) => c.table).concat("settings");
