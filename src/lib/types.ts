@@ -1,7 +1,7 @@
 // ===== Core domain types =====
 
-/** manager = صلاحية كاملة لكن على عقاراته المسندة فقط، وبلا إدارة مستخدمين. */
-export type Role = "admin" | "manager" | "viewer" | "guard";
+/** guard (حارس) = صلاحية كاملة داخل العمارات المسندة إليه، بلا إدارة مستخدمين ولا عمارات. */
+export type Role = "admin" | "viewer" | "guard";
 
 export type UnitStatus = "occupied" | "vacant";
 export type UnitKind = "apartment" | "shop" | "storage" | "office" | "parking";
@@ -26,6 +26,7 @@ export interface User {
   salt: string;
   hash: string;
   active: boolean;
+  /** العمارات المسندة — "all" لكل العمارات. */
   buildingIds: string[] | "all";
   phone?: string;
   createdAt: string;

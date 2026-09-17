@@ -12,10 +12,10 @@ import { passwordStrength } from "@/lib/crypto";
 import { PERMS } from "@/lib/permissions";
 import type { Role, User } from "@/lib/types";
 
-const roleTone = { admin: "teal", manager: "violet", viewer: "sky", guard: "gold" } as const;
+const roleTone = { admin: "teal", viewer: "sky", guard: "gold" } as const;
 
 const roleIcon = (r: Role): IconName =>
-  r === "admin" ? "shield" : r === "manager" ? "building" : r === "viewer" ? "eye" : "key";
+  r === "admin" ? "shield" : r === "viewer" ? "eye" : "building";
 
 export default function UsersPage() {
   const { data } = useStore();
@@ -106,7 +106,7 @@ export default function UsersPage() {
       <div className="card p-3.5">
         <h2 className="mb-3 text-[15px]">ماذا يستطيع كل دور؟</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {(["admin", "manager", "viewer", "guard"] as Role[]).map((r) => (
+          {(["admin", "guard", "viewer"] as Role[]).map((r) => (
             <div key={r} className="rounded-lg border border-[var(--line)] p-3">
               <div className="mb-2 flex items-center gap-2">
                 <span className="grid h-8 w-8 place-items-center rounded-lg bg-[var(--primary-050)] text-[var(--primary-700)]">
@@ -171,9 +171,8 @@ export default function UsersPage() {
 
 const DESCR: Record<Role, string[]> = {
   admin: ["كل الصفحات والتعديل", "إدارة العمارات والوحدات", "العقود والمالية والوصولات", "رفع وحذف المستندات", "إدارة المستخدمين"],
-  manager: ["كل شيء داخل عقاراته فقط", "الشقق والمستأجرون والعقود", "المالية والوصولات والمصروفات", "لا يرى العقارات الأخرى", "لا يدير المستخدمين ولا الإعدادات"],
   viewer: ["اطلاع على كل البيانات", "الكشوفات والتقارير", "تصدير البيانات", "بدون أي تعديل أو حذف"],
-  guard: ["الشقق وبيانات المستأجرين", "فتح ومتابعة بلاغات الصيانة", "بدون بيانات مالية", "بدون تعديل على العقود"],
+  guard: ["كل شيء داخل عماراته المسندة", "الشقق والمستأجرون والعقود", "المالية والوصولات والمصروفات", "لا يرى العمارات الأخرى", "لا يضيف عمارات ولا يدير المستخدمين"],
 };
 
 /* ============================== نموذج المستخدم ============================== */
@@ -205,10 +204,10 @@ function UserForm({ open, onClose, target }: { open: boolean; onClose: () => voi
     if (data.users.some((u) => u.username.toLowerCase() === uname && u.id !== target?.id))
       return toast("اسم المستخدم محجوز", "error");
     if (!target && strength.problems.length) return toast(`كلمة المرور: ${strength.problems[0]}`, "error");
-    if (f.role === "manager" && buildingIds.length === 0)
-      return toast("اختر العقار الذي يشرف عليه", "error");
+    if (f.role === "guard" && buildingIds.length === 0)
+      return toast("اختر العمارة التي يعمل عليها", "error");
 
-    const scopeIds: string[] | "all" = f.role === "manager" ? buildingIds : "all";
+    const scopeIds: string[] | "all" = f.role === "guard" ? buildingIds : "all";
 
     setBusy(true);
     const res = target
@@ -263,13 +262,12 @@ function UserForm({ open, onClose, target }: { open: boolean; onClose: () => voi
         <Field label="الدور" required className="sm:col-span-2">
           <Select value={f.role} onChange={(e) => setF({ ...f, role: e.target.value as Role })}>
             <option value="admin">مدير — صلاحية كاملة</option>
-            <option value="manager">مشرف عقار — صلاحية كاملة على عقاراته</option>
-            <option value="viewer">مشاهد — اطلاع فقط</option>
-            <option value="guard">حارس — الشقق والبلاغات</option>
+            <option value="guard">حارس — صلاحية كاملة على عماراته</option>
+            <option value="viewer">مشاهد — اطلاع فقط دون تعديل</option>
           </Select>
         </Field>
-        {f.role === "manager" && (
-          <Field label="العقارات التي يشرف عليها" required className="sm:col-span-2" hint="لن يرى غيرها إطلاقًا">
+        {f.role === "guard" && (
+          <Field label="العمارات التي يعمل عليها" required className="sm:col-span-2" hint="لن يرى غيرها إطلاقًا">
             <div className="space-y-1.5">
               {data.buildings.map((b) => {
                 const on = buildingIds.includes(b.id);

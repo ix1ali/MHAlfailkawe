@@ -5,28 +5,26 @@ import type { Me } from "./session";
  * الصلاحيات على مستوى الصف — تُطبَّق في الخادم على كل قراءة وكتابة،
  * فلا يستطيع أحد تجاوزها من المتصفح.
  *
- *  • المدير: كل شيء.
- *  • مشرف العقار: كل شيء داخل عقاراته المسندة فقط.
+ *  • المدير: كل شيء، وهو وحده من يدير المستخدمين والعمارات والإعدادات.
+ *  • الحارس: كل شيء داخل العمارات المسندة إليه — الشقق والمستأجرون والعقود
+ *    والمالية والوصولات والمستندات — بلا إدارة مستخدمين ولا إضافة عمارات.
  *  • المحاسب (مشاهد): اطلاع على كل شيء بما فيه المالية، بلا تعديل.
- *  • الحارس: الشقق والمستأجرون والتنبيهات والمراسلات — بلا مالية.
  */
 
 type Row = Record<string, unknown>;
 
+/** العمارات المسندة: null تعني كل العمارات. */
 const inScope = (me: Me, b: unknown) =>
-  typeof b === "string" && (me.buildingIds ?? []).includes(b);
+  me.buildingIds === null || (typeof b === "string" && me.buildingIds.includes(b));
 
 export const sees = (me: Me, b: unknown) =>
-  me.role === "admin" || me.role === "viewer" || me.role === "guard" || (me.role === "manager" && inScope(me, b));
+  me.role === "admin" || me.role === "viewer" || (me.role === "guard" && inScope(me, b));
 
 export const edits = (me: Me, b: unknown) =>
-  me.role === "admin" || (me.role === "manager" && inScope(me, b));
+  me.role === "admin" || (me.role === "guard" && inScope(me, b));
 
 export const seesFinance = (me: Me, b: unknown) =>
-  me.role === "admin" || me.role === "viewer" || (me.role === "manager" && inScope(me, b));
-
-export const flags = (me: Me, b: unknown) =>
-  me.role === "admin" || me.role === "guard" || (me.role === "manager" && inScope(me, b));
+  me.role === "admin" || me.role === "viewer" || (me.role === "guard" && inScope(me, b));
 
 /** الجداول التي تُقرأ وتُكتب عبر المزامنة العامة. */
 export const SYNC_TABLES = [
@@ -52,7 +50,7 @@ export type Op = "insert" | "update" | "delete";
 
 /**
  * هل يُسمح بالعملية؟ في التعديل تُفحص النسخة القديمة والجديدة معًا،
- * فلا يُنقل سجل من عقار لا يملكه المستخدم أو إليه.
+ * فلا يُنقل سجل من عمارة لا يملكها المستخدم أو إليها.
  * القيمة "ignore" تعني تجاهل العملية بصمت (مثل تقليم سجل العمليات محليًا).
  */
 export function canWrite(me: Me, table: string, op: Op, next: Row | null, prev: Row | null): boolean | "ignore" {
@@ -64,12 +62,10 @@ export function canWrite(me: Me, table: string, op: Op, next: Row | null, prev: 
       if (op !== "update") return "ignore";   // الإنشاء والحذف لهما مسارات خاصة
       return me.role === "admin";
     case "buildings":
-      if (op === "update") return both((b) => edits(me, b), "id");
+      // إضافة العمارات وتعديل بياناتها وحذفها للمدير وحده
       return me.role === "admin";
-    case "floors": case "tenants": case "contracts": case "docs": case "payments": case "expenses":
-      return both((b) => edits(me, b), "building_id");
-    case "units":
-      if (op === "update") return both((b) => flags(me, b), "building_id");
+    case "floors": case "units": case "tenants": case "contracts": case "docs":
+    case "payments": case "expenses":
       return both((b) => edits(me, b), "building_id");
     case "memos":
       if (op === "insert") return me.role !== "viewer";
@@ -83,5 +79,5 @@ export function canWrite(me: Me, table: string, op: Op, next: Row | null, prev: 
 
 export const canWriteSettings = (me: Me) => me.role === "admin";
 
-/** رفع الملفات: من يملك «رفع مستند». القراءة لكل مستخدم مفعّل. */
-export const canUpload = (me: Me) => me.role === "admin" || me.role === "manager";
+/** رفع الملفات: المدير والحارس. القراءة لكل مستخدم مفعّل. */
+export const canUpload = (me: Me) => me.role === "admin" || me.role === "guard";

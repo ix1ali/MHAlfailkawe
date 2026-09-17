@@ -5,7 +5,7 @@ import { uid } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
-const ROLES = ["admin", "manager", "viewer", "guard"];
+const ROLES = ["admin", "viewer", "guard"];
 
 /** إنشاء حساب — للمدير فقط. */
 export function POST(req: Request) {
@@ -21,7 +21,7 @@ export function POST(req: Request) {
     if (String(b.password ?? "").length < 8) throw new HttpError(400, "كلمة المرور قصيرة.");
     if (!ROLES.includes(b.role)) throw new HttpError(400, "دور غير معروف.");
     const ids = Array.isArray(b.buildingIds) ? b.buildingIds : null;
-    if (b.role === "manager" && !ids?.length) throw new HttpError(400, "يجب تحديد عقار واحد على الأقل لمشرف العقار.");
+    if (b.role === "guard" && !ids?.length) throw new HttpError(400, "اختر عمارة واحدة على الأقل للحارس.");
 
     const [exists] = await q(`select 1 from users where username = $1`, [uname]);
     if (exists) throw new HttpError(409, "اسم المستخدم محجوز.");
@@ -31,7 +31,7 @@ export function POST(req: Request) {
         `insert into users (id, username, display_name, role, phone, building_ids, password_hash)
          values ($1, $2, $3, $4, $5, $6, $7)`,
         [uid("u-"), uname, String(b.displayName ?? "").trim() || uname, b.role, b.phone || null,
-         b.role === "manager" ? ids : null, await bcrypt.hash(b.password, 10)]
+         b.role === "guard" ? ids : null, await bcrypt.hash(b.password, 10)]
       );
       await c.query(`insert into audit_log (id, actor, action, detail) values ($1, $2, 'إضافة مستخدم', $3)`,
         [uid("a-"), me.username, uname]);

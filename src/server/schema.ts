@@ -158,6 +158,8 @@ export function ensureReady(): Promise<void> {
 
 async function init() {
   await pool().query(DDL);
+  // دور «مشرف عقار» السابق صار هو «الحارس» نفسه — تُنقل الحسابات القديمة إليه
+  await q(`update users set role = 'guard' where role = 'manager'`);
   const tables = COLLS.map((c) => c.table).concat("settings");
   await q(
     `insert into revs (table_name, rev) select unnest($1::text[]), 0 on conflict do nothing`,
