@@ -25,6 +25,15 @@ export function GET() {
     await ensureReady();
     const [{ n }] = await q<{ n: number }>(`select count(*)::int n from users`);
     const [{ b }] = await q<{ b: number }>(`select count(*)::int b from buildings`);
-    return Response.json({ ok: true, database: "متصلة", users: n, buildings: b, envNames: env });
+    const roles = await q<{ role: string; n: number }>(`select role, count(*)::int n from users group by role`);
+    return Response.json({
+      ok: true,
+      database: "متصلة",
+      users: n,
+      buildings: b,
+      roles: Object.fromEntries(roles.map((r) => [r.role, r.n])),
+      version: (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7),
+      envNames: env,
+    });
   });
 }
