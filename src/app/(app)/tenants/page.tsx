@@ -481,6 +481,7 @@ function TenantSheet({ id, onClose }: { id: string | null; onClose: () => void }
       <PrintOverlay
         open={doc === "contract"} onClose={() => setDoc(null)}
         fileTitle={`عقد — ${tenant.name}`}
+        flush
       >
         {active && <ContractDoc contract={active} signedAt={ctDate} />}
       </PrintOverlay>

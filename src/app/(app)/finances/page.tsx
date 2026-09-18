@@ -438,6 +438,7 @@ export default function FinancesPage() {
       <PrintOverlay
         open={doc?.k === "contract"} onClose={() => setDoc(null)}
         fileTitle={doc?.k === "contract" ? `عقد ${doc.c.no}` : ""}
+        flush
       >
         {doc?.k === "contract" && <ContractDoc contract={doc.c} />}
       </PrintOverlay>

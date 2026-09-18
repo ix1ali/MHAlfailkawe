@@ -327,12 +327,12 @@ function ContractFormSheet({ onClose }: { onClose: () => void }) {
           </div>
 
           <p className="t-xs rounded-lg bg-[var(--surface-2)] p-2.5 leading-relaxed text-[var(--muted)]">
-            تُطبع البنود التسعة عشر المعتمدة لدى المكتب تلقائيًا مع العقد.
+            تُطبع البنود العشرون المعتمدة لدى المكتب تلقائيًا مع العقد، في صفحة واحدة.
           </p>
         </div>
       </Sheet>
 
-      <PrintOverlay open={open} onClose={() => setOpen(false)} fileTitle={`عقد إيجار — ${f.tenantName || "جديد"}`}>
+      <PrintOverlay open={open} onClose={() => setOpen(false)} fileTitle={`عقد إيجار — ${f.tenantName || "جديد"}`} flush>
         <ContractSheet f={f} />
       </PrintOverlay>
     </>

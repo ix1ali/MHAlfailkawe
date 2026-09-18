@@ -596,6 +596,7 @@ export default function UnitSheet({ unitId, onClose }: { unitId: string | null; 
         open={printKind === "contract"}
         onClose={() => setPrintKind(null)}
         fileTitle={contract ? `عقد إيجار ${contract.no}` : ""}
+        flush
       >
         {contract && <ContractDoc contract={contract} />}
       </PrintOverlay>
