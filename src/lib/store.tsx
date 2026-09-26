@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { AppData } from "./types";
 import { uid } from "./crypto";
+import { syncUnitStatuses } from "./contracts";
 import { cloudError, currentMe, onSession } from "./cloud";
 import { emptyData, fetchAll, fetchRevs, fetchTables, pushDiff, type Revs } from "./cloudData";
 
@@ -220,11 +221,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [signedIn, syncing, error]
   );
 
+  // حالة الوحدات تُقرأ حسب الشهر الحالي — المستأجر القادم لا يشغل الشقة قبل شهره
+  const view = useMemo(() => (data ? syncUnitStatuses(data) : null), [data]);
+
   const value = useMemo<StoreCtx | null>(
-    () => (data
-      ? { ready, data, update, activeBuilding, setActiveBuilding, exportBackup, importBackup, cloud, reload }
+    () => (view
+      ? { ready, data: view, update, activeBuilding, setActiveBuilding, exportBackup, importBackup, cloud, reload }
       : null),
-    [data, ready, update, activeBuilding, setActiveBuilding, exportBackup, importBackup, cloud, reload]
+    [view, ready, update, activeBuilding, setActiveBuilding, exportBackup, importBackup, cloud, reload]
   );
 
   if (!value) {
